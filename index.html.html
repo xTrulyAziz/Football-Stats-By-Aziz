@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Football Results</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --pitch-green: #1a4d2e;
+            --grass-dark: #0d2818;
+            --line-white: #f8f9fa;
+            --score-gold: #ffd700;
+            --highlight-red: #dc2626;
+            --text-light: #e5e7eb;
+            --card-bg: rgba(13, 40, 24, 0.95);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Barlow', sans-serif;
+            background: linear-gradient(135deg, var(--grass-dark) 0%, var(--pitch-green) 100%);
+            background-attachment: fixed;
+            color: var(--text-light);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Decorative pitch lines background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 100px,
+                    rgba(248, 249, 250, 0.03) 100px,
+                    rgba(248, 249, 250, 0.03) 102px
+                ),
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 100px,
+                    rgba(248, 249, 250, 0.03) 100px,
+                    rgba(248, 249, 250, 0.03) 102px
+                );
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .api-setup {
+            background: rgba(245, 158, 11, 0.15);
+            border: 2px solid var(--score-gold);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            animation: slideDown 0.6s ease-out;
+        }
+
+        .api-setup h3 {
+            color: var(--score-gold);
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+
+        .api-setup input {
+            width: 100%;
+            padding: 14px;
+            font-family: 'Barlow', sans-serif;
+            font-size: 1rem;
+            background: var(--card-bg);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            color: var(--text-light);
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .api-setup input:focus {
+            outline: none;
+            border-color: var(--score-gold);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .api-setup .help-text {
+            font-size: 0.9rem;
+            color: rgba(229, 231, 235, 0.7);
+            margin-top: 10px;
+        }
+
+        .api-setup .help-text a {
+            color: var(--score-gold);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .api-setup .help-text a:hover {
+            color: var(--line-white);
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px 30px;
+            animation: slideDown 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(3rem, 8vw, 7rem);
+            letter-spacing: 8px;
+            background: linear-gradient(135deg, var(--score-gold), #fff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
+            margin-bottom: 10px;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--score-gold);
+            opacity: 0.9;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 40px 0;
+            animation: fadeIn 1s ease-out 0.3s both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        select, button {
+            padding: 14px 28px;
+            font-family: 'Barlow', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            border: 2px solid var(--score-gold);
+            background: var(--card-bg);
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            backdrop-filter: blur(10px);
+        }
+
+        select {
+            min-width: 200px;
+        }
+
+        button {
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: var(--score-gold);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button span {
+            position: relative;
+            z-index: 1;
+        }
+
+        button:hover {
+            color: var(--grass-dark);
+            border-color: var(--score-gold);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        select:hover, select:focus {
+            border-color: var(--line-white);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tab.active {
+            background: var(--score-gold);
+            color: var(--grass-dark);
+            border-color: var(--score-gold);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--score-gold);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .error {
+            background: rgba(220, 38, 38, 0.2);
+            border: 2px solid var(--highlight-red);
+            color: var(--line-white);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 2px solid #22c55e;
+            color: var(--line-white);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .matches-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .match-card {
+            background: var(--card-bg);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 12px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            animation: cardAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .match-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(135deg, var(--score-gold), var(--line-white));
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: -1;
+        }
+
+        .match-card:hover::before {
+            opacity: 0.3;
+        }
+
+        .match-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 60px rgba(255, 215, 0, 0.4);
+            border-color: var(--score-gold);
+        }
+
+        @keyframes cardAppear {
+            from {
+                opacity: 0;
+                transform: translateY(30px) rotateX(10deg);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) rotateX(0);
+            }
+        }
+
+        .match-card:nth-child(1) { animation-delay: 0.05s; }
+        .match-card:nth-child(2) { animation-delay: 0.1s; }
+        .match-card:nth-child(3) { animation-delay: 0.15s; }
+        .match-card:nth-child(4) { animation-delay: 0.2s; }
+        .match-card:nth-child(5) { animation-delay: 0.25s; }
+        .match-card:nth-child(6) { animation-delay: 0.3s; }
+
+        .match-status {
+            display: inline-block;
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-radius: 20px;
+            margin-bottom: 15px;
+        }
+
+        .status-live {
+            background: var(--highlight-red);
+            color: white;
+            animation: livePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes livePulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+        }
+
+        .status-finished {
+            background: rgba(229, 231, 235, 0.2);
+            color: var(--text-light);
+        }
+
+        .status-scheduled {
+            background: rgba(255, 215, 0, 0.2);
+            color: var(--score-gold);
+        }
+
+        .match-teams {
+            margin: 20px 0;
+        }
+
+        .team-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .team-row:last-child {
+            border-bottom: none;
+        }
+
+        .team-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            flex: 1;
+            letter-spacing: 0.5px;
+        }
+
+        .team-score {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.5rem;
+            color: var(--score-gold);
+            min-width: 50px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+
+        .match-info {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 215, 0, 0.2);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: rgba(229, 231, 235, 0.7);
+        }
+
+        .competition-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(255, 215, 0, 0.15);
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            color: var(--score-gold);
+        }
+
+        .standings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .standings-table th {
+            background: rgba(255, 215, 0, 0.2);
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+            color: var(--score-gold);
+        }
+
+        .standings-table td {
+            padding: 15px 10px;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .standings-table tr:hover {
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .position {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            color: var(--score-gold);
+            text-align: center;
+            width: 50px;
+        }
+
+        .team-crest {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        footer {
+            text-align: center;
+            padding: 60px 20px 40px;
+            color: rgba(229, 231, 235, 0.6);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--score-gold);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        footer a:hover {
+            color: var(--line-white);
+        }
+
+        @media (max-width: 768px) {
+            .matches-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 3.5rem;
+                letter-spacing: 4px;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab {
+                width: 100%;
+            }
+
+            .standings-table {
+                font-size: 0.85rem;
+            }
+
+            .standings-table th,
+            .standings-table td {
+                padding: 10px 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="api-setup" id="apiSetup">
+            <h3>⚙️ API Configuration</h3>
+            <input 
+                type="text" 
+                id="apiKeyInput" 
+                placeholder="Enter your football-data.org API key"
+                autocomplete="off"
+            >
+            <button onclick="saveApiKey()"><span>Save API Key</span></button>
+            <div class="help-text">
+                Don't have an API key? Get one free at 
+                <a href="https://www.football-data.org/client/register" target="_blank">football-data.org</a>
+                <br>After registration, find your API key in your account dashboard.
+            </div>
+        </div>
+
+        <header>
+            <h1>LIVE FOOTBALL</h1>
+            <div class="subtitle">Real-time Match Results</div>
+        </header>
+
+        <div class="controls">
+            <select id="competitionSelect">
+                <option value="">Select Competition</option>
+                <option value="PL">Premier League</option>
+                <option value="PD">La Liga</option>
+                <option value="BL1">Bundesliga</option>
+                <option value="SA">Serie A</option>
+                <option value="FL1">Ligue 1</option>
+                <option value="CL">Champions League</option>
+                <option value="EC">European Championship</option>
+                <option value="WC">World Cup</option>
+            </select>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-view="matches"><span>Matches</span></button>
+            <button class="tab" data-view="standings"><span>Standings</span></button>
+        </div>
+
+        <div id="content"></div>
+    </div>
+
+    <footer>
+        <p>Powered by <a href="https://www.football-data.org" target="_blank">football-data.org</a> API</p>
+        <p style="margin-top: 10px; font-size: 0.85rem;">✅ Using real live data from the API</p>
+    </footer>
+
+    <script>
+        const BASE_URL = 'https://api.football-data.org/v4';
+        const API_KEY_STORAGE = 'football_api_key';
+
+        const competitionSelect = document.getElementById('competitionSelect');
+        const content = document.getElementById('content');
+        const tabs = document.querySelectorAll('.tab');
+        const apiSetup = document.getElementById('apiSetup');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+
+        let currentView = 'matches';
+        let currentCompetition = '';
+        let apiKey = localStorage.getItem(API_KEY_STORAGE);
+
+        // Initialize
+        if (apiKey) {
+            apiKeyInput.value = apiKey;
+            apiSetup.style.display = 'none';
+        }
+
+        // Tab switching
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentView = tab.dataset.view;
+                
+                if (currentCompetition) {
+                    loadContent();
+                }
+            });
+        });
+
+        // Competition selection
+        competitionSelect.addEventListener('change', (e) => {
+            currentCompetition = e.target.value;
+            if (currentCompetition) {
+                loadContent();
+            } else {
+                content.innerHTML = '';
+            }
+        });
+
+        function saveApiKey() {
+            const key = apiKeyInput.value.trim();
+            if (!key) {
+                showError('Please enter an API key');
+                return;
+            }
+
+            apiKey = key;
+            localStorage.setItem(API_KEY_STORAGE, key);
+            apiSetup.style.display = 'none';
+            showSuccess('API key saved! You can now load match data.');
+        }
+
+        async function loadContent() {
+            if (!apiKey) {
+                showError('Please configure your API key first');
+                apiSetup.style.display = 'block';
+                return;
+            }
+
+            if (currentView === 'matches') {
+                await loadMatches();
+            } else if (currentView === 'standings') {
+                await loadStandings();
+            }
+        }
+
+        async function loadMatches() {
+            if (!currentCompetition) {
+                showError('Please select a competition first!');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch(`${BASE_URL}/competitions/${currentCompetition}/matches`, {
+                    headers: {
+                        'X-Auth-Token': apiKey
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('Invalid API key or access denied. Please check your API key.');
+                    } else if (response.status === 429) {
+                        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+                    } else {
+                        throw new Error(`API error: ${response.status}`);
+                    }
+                }
+
+                const data = await response.json();
+                displayMatches(data.matches);
+            } catch (error) {
+                showError(`Failed to load matches: ${error.message}`);
+                console.error('Error:', error);
+            }
+        }
+
+        async function loadStandings() {
+            if (!currentCompetition) {
+                showError('Please select a competition first!');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch(`${BASE_URL}/competitions/${currentCompetition}/standings`, {
+                    headers: {
+                        'X-Auth-Token': apiKey
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('Invalid API key or access denied. Please check your API key.');
+                    } else if (response.status === 404) {
+                        throw new Error('Standings not available for this competition.');
+                    } else if (response.status === 429) {
+                        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+                    } else {
+                        throw new Error(`API error: ${response.status}`);
+                    }
+                }
+
+                const data = await response.json();
+                displayStandings(data.standings);
+            } catch (error) {
+                showError(`Failed to load standings: ${error.message}`);
+                console.error('Error:', error);
+            }
+        }
+
+        function showLoading() {
+            content.innerHTML = '<div class="loading">Loading from API...</div>';
+        }
+
+        function showError(message) {
+            content.innerHTML = `<div class="error">⚠️ ${message}</div>`;
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = '✅ ' + message;
+            apiSetup.appendChild(successDiv);
+            setTimeout(() => successDiv.remove(), 3000);
+        }
+
+        function displayMatches(matches) {
+            if (!matches || matches.length === 0) {
+                content.innerHTML = '<div class="error">No matches found for this competition.</div>';
+                return;
+            }
+
+            // Sort by date, most recent first
+            matches.sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+
+            // Take recent matches (last 20)
+            const recentMatches = matches.slice(0, 20);
+
+            const html = `
+                <div class="matches-grid">
+                    ${recentMatches.map(match => createMatchCard(match)).join('')}
+                </div>
+            `;
+
+            content.innerHTML = html;
+        }
+
+        function displayStandings(standings) {
+            if (!standings || standings.length === 0) {
+                content.innerHTML = '<div class="error">No standings found for this competition.</div>';
+                return;
+            }
+
+            // Get the main standings table (usually first one)
+            const table = standings[0].table;
+
+            if (!table || table.length === 0) {
+                content.innerHTML = '<div class="error">No standings data available.</div>';
+                return;
+            }
+
+            const html = `
+                <table class="standings-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px; text-align: center;">Pos</th>
+                            <th>Team</th>
+                            <th style="text-align: center;">P</th>
+                            <th style="text-align: center;">W</th>
+                            <th style="text-align: center;">D</th>
+                            <th style="text-align: center;">L</th>
+                            <th style="text-align: center;">GF</th>
+                            <th style="text-align: center;">GA</th>
+                            <th style="text-align: center;">GD</th>
+                            <th style="text-align: center;">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${table.map(team => `
+                            <tr>
+                                <td class="position">${team.position}</td>
+                                <td>
+                                    ${team.team.crest ? `<img src="${team.team.crest}" class="team-crest" alt="${team.team.name}" onerror="this.style.display='none'">` : ''}
+                                    <strong>${team.team.name}</strong>
+                                </td>
+                                <td style="text-align: center;">${team.playedGames}</td>
+                                <td style="text-align: center;">${team.won}</td>
+                                <td style="text-align: center;">${team.draw}</td>
+                                <td style="text-align: center;">${team.lost}</td>
+                                <td style="text-align: center;">${team.goalsFor}</td>
+                                <td style="text-align: center;">${team.goalsAgainst}</td>
+                                <td style="text-align: center;">${team.goalDifference}</td>
+                                <td style="text-align: center;"><strong>${team.points}</strong></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            content.innerHTML = html;
+        }
+
+        function createMatchCard(match) {
+            const status = getMatchStatus(match.status);
+            const date = new Date(match.utcDate);
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+            });
+            const formattedTime = date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+
+            const homeScore = match.score.fullTime.home ?? '-';
+            const awayScore = match.score.fullTime.away ?? '-';
+
+            return `
+                <div class="match-card">
+                    <div class="competition-badge">${match.competition.name}</div>
+                    <div class="match-status status-${status.class}">${status.text}</div>
+                    
+                    <div class="match-teams">
+                        <div class="team-row">
+                            <div class="team-name">${match.homeTeam.name}</div>
+                            <div class="team-score">${homeScore}</div>
+                        </div>
+                        <div class="team-row">
+                            <div class="team-name">${match.awayTeam.name}</div>
+                            <div class="team-score">${awayScore}</div>
+                        </div>
+                    </div>
+
+                    <div class="match-info">
+                        <span>${formattedDate}</span>
+                        <span>${formattedTime}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getMatchStatus(status) {
+            switch(status) {
+                case 'IN_PLAY':
+                case 'PAUSED':
+                    return { text: 'LIVE', class: 'live' };
+                case 'FINISHED':
+                    return { text: 'Full Time', class: 'finished' };
+                case 'SCHEDULED':
+                case 'TIMED':
+                    return { text: 'Scheduled', class: 'scheduled' };
+                default:
+                    return { text: status, class: 'scheduled' };
+            }
+        }
+    </script>
+</body>
+</html>
